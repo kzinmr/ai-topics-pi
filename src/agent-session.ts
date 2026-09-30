@@ -7,6 +7,8 @@ import {
   type AgentSession, type CreateAgentSessionRuntimeFactory,
 } from '@earendil-works/pi-coding-agent';
 import type { AgentRequest, AgentResult } from './types.js';
+import { checkSandbox } from './sandbox.js';
+import { sandboxExtension, sandboxTools } from './sandbox-tools.js';
 
 export async function makeModelRuntime(request: AgentRequest): Promise<ModelRuntime> {
   const agentDir = join(request.profile, '.pi/agent');
@@ -16,6 +18,7 @@ export async function makeModelRuntime(request: AgentRequest): Promise<ModelRunt
   return runtime;
 }
 export async function createRuntime(request: AgentRequest) {
+  await checkSandbox(request);
   const agentDir = join(request.profile, '.pi/agent');
   const factory: CreateAgentSessionRuntimeFactory = async ({cwd, sessionManager, sessionStartEvent}) => {
     // Rebuilt on /new, /resume and /fork; profile credentials never change cwd.
@@ -25,6 +28,7 @@ export async function createRuntime(request: AgentRequest) {
       resourceLoaderOptions: {
         noContextFiles: true, noExtensions: true, noThemes: true,
         additionalExtensionPaths: (request.pi.extensions ?? []).map(p => resolve(request.source, p)),
+        extensionFactories: [sandboxExtension(request)],
         additionalSkillPaths: [join(request.source, 'skills')],
         additionalPromptTemplatePaths: [join(request.source, 'prompts')],
         systemPromptOverride: () => undefined,
@@ -41,6 +45,7 @@ export async function createRuntime(request: AgentRequest) {
     }
     const created = await createAgentSession({cwd, agentDir, modelRuntime, settingsManager,
       resourceLoader: services.resourceLoader, sessionManager, sessionStartEvent,
+      customTools: sandboxTools(request),
       model, thinkingLevel: request.pi.thinking});
     return {...created, services, diagnostics: services.diagnostics};
   };

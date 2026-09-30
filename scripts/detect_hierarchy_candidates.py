@@ -274,7 +274,7 @@ def main():
     )
 
     # Output
-    output_path = Path(os.path.expanduser("~/.ai-topics/data/hierarchy_report.json"))
+    output_path = Path(os.environ.get("WIKI_WORK_DIR", os.path.expanduser("~/.ai-topics/data"))) / "hierarchy_report.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, indent=2, ensure_ascii=False))
     print(json.dumps(report, indent=2, ensure_ascii=False))

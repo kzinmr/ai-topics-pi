@@ -41,16 +41,19 @@ test('CLI uses the selected profile, keeps dry-run read-only and reports failure
   assert.equal(JSON.parse(status.stdout)['blog-triage'].status,'error');
   const service=cli('systemd-service');assert.equal(service.status,0,service.stderr);
   assert.ok(service.stdout.includes(`AI_TOPICS_PROFILE=${cfg.profile}`));
-  assert.ok(service.stdout.includes(`${cfg.source}/bin/wiki`));assert.ok(!service.stdout.includes('@SOURCE@'));
+  assert.ok(service.stdout.includes(`${cfg.source}/dist/cli.js`));
+  assert.ok(service.stdout.includes(process.execPath));
+  assert.ok(service.stdout.includes('sandbox-check'));assert.ok(!service.stdout.includes('@SOURCE@'));
 });
 test('profile mutex excludes other connections and releases on close', () => {
   const release = lockProfile(cfg.state);
   assert.throws(() => lockProfile(cfg.state), /busy/);
   release(); lockProfile(cfg.state)();
 });
-test('profile mutex releases after process crash', async () => {
+test('profile mutex releases after process crash', async t => {
   const module = new URL('../dist/state.js', import.meta.url).href;
-  const child = spawn(process.execPath, ['--input-type=module', '-e', `import {lockProfile} from ${JSON.stringify(module)}; lockProfile(${JSON.stringify(cfg.state)}); console.log('locked'); setInterval(()=>{},1000)`]);
+  const child = spawn(process.execPath, ['--input-type=module', '-e', `import {lockProfile} from ${JSON.stringify(module)}; globalThis.release = lockProfile(${JSON.stringify(cfg.state)}); console.log('locked'); setInterval(()=>{},1000)`]);
+  t.after(() => child.kill('SIGKILL'));
   await new Promise((resolve,reject) => { child.stdout.once('data', resolve); child.once('error',reject); });
   assert.throws(() => lockProfile(cfg.state), /busy/);
   child.kill('SIGKILL'); await new Promise(resolve => child.once('close', resolve));

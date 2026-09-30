@@ -1,13 +1,18 @@
 /** SDK worker boundary: IPC carries our typed result, never Pi CLI output. */
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
+import { delimiter, join, resolve } from 'node:path';
 import type { Config } from './config.js';
 import { killGroup, trackChild } from './process.js';
 import type { AgentRequest, AgentResult, Job, PiSettings, WorkerReply } from './types.js';
 
 export function agentRequest(cfg: Config, job?: Job): AgentRequest {
+  const python = cfg.python();
+  const executable = python.includes('/') ? resolve(cfg.repo, python) :
+    (cfg.env().PATH ?? '').split(delimiter).map(dir => join(dir, python)).find(existsSync);
   return {source: cfg.source, profile: cfg.profile, repo: cfg.repo, state: cfg.state,
-    pi: {...cfg.local.pi, ...job?.pi}, mode: 'prompt'};
+    pi: {...cfg.local.pi, ...job?.pi}, job: job?.name, python: executable, mode: 'prompt'};
 }
 export function runWorker(cfg: Config, request: AgentRequest, timeout: number): Promise<AgentResult | unknown[] | null> {
   return new Promise((resolve, reject) => {

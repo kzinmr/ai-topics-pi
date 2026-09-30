@@ -5,6 +5,7 @@ Lucy の AI 情報収集と Karpathy 型 LLM Wiki を、**TypeScript runner と 
 
 - **TypeScript / Node.js 24**：CLI、定時ジョブ、実行記録、排他、結果検証、通知、Git 公開。
 - **Pi SDK**：モデル接続、エージェント実行、標準・拡張ツール、skill / prompt 読込み、セッション管理。
+- **OS sandbox**：標準ツールと対話シェルを bubblewrap 内で実行。認証・管理状態を隔離。
 - **独立 Python scripts**：RSS / newsletter / X / sitemap の収集と Wiki の品質検査。
 - **Local LLM / OpenAI 互換 API**：Pi 標準の models.json で切替。Pi `0.99.1` を固定。
 - **ChatGPT サブスクリプション**：Pi 標準の `/login openai` で接続。同じ SDK を定期ジョブにも使用。
@@ -12,20 +13,25 @@ Lucy の AI 情報収集と Karpathy 型 LLM Wiki を、**TypeScript runner と 
 
 ## セットアップ
 
-Linux / macOS、Node.js 24+、Python 3.12+、Git が必要です。Windows は WSL / Docker。
+Linux、Node.js 24+、Python 3.12+、Git、bubblewrap が必要です。Windows は WSL2。
+本実装の tool sandbox は Linux 専用です。macOS の直接実行は現在サポートしません。
 profile は SQLite の file locking に対応したローカル filesystem に置きます。
-Pi のファイル検索用に ripgrep と fd も導入してください（Debian/Ubuntu は
-`apt install ripgrep fd-find`、macOS は `brew install ripgrep fd`）。Docker image には同梱します。
+Pi の検索用に ripgrep と fd を導入してください。Ubuntu 24.04 では
+`sudo tools/setup-linux-sandbox` が依存と専用 AppArmor profile を準備します。
+グローバルな user namespace 制限は無効化しません。詳細は [配備](docs/deployment.md)。
 
 ```sh
 git clone https://github.com/kzinmr/ai-topics-pi.git
 cd ai-topics-pi
+# Ubuntu 24.04
+sudo tools/setup-linux-sandbox
 npm ci --ignore-scripts
 npm run build
 uv sync --frozen --extra collectors
 export AI_TOPICS_PROFILE="$PWD/profiles/lucy"
 bin/wiki init --content-source https://github.com/kzinmr/ai-topics.git
 bin/wiki validate
+bin/wiki sandbox-check
 bin/wiki doctor
 ```
 
@@ -66,7 +72,7 @@ OS scheduler が毎分 `wiki tick` を起動し、TypeScript runner が実行す
 各モデル処理は独立した Node.js worker 内で Pi SDK の session を作り、
 `await session.prompt()` の完了後に結果を検証します。SDK worker とは Node IPC で通信します。
 収集・通知等の subprocess にも timeout を設け、異常終了を記録します。
-[設計](docs/architecture.md) と [systemd / cron / Docker](docs/deployment.md) に詳細があります。
+[設計](docs/architecture.md) と [systemd / cron](docs/deployment.md) に詳細があります。
 
 `config/models.example.json` に localhost と外部 API の接続例があります。
 `openai-completions` provider の baseUrl と model ID を設定し、認証不要 local server には
@@ -115,7 +121,7 @@ bin/wiki pi --provider openai --model gpt-6.1-sol --print 'Reply only OK. Do not
 
 モデル一覧はローカルの catalog と認証設定の確認です。各アカウントでのモデル利用権や
 残り利用枠は保証しません。認証後の最後のコマンドで実際の疎通を確認します。
-SSH / Docker でブラウザの callback が届かない場合は、Pi の画面に最終 redirect URL を
+SSH でブラウザの callback が届かない場合は、Pi の画面に最終 redirect URL を
 貼り付けます。ログイン時と定期実行時に同じ profile / volume を使ってください。
 
 対象プラン・利用枠は OpenAI 側の条件に従います。利用量は既存プランの枠を消費し、

@@ -12,11 +12,12 @@ import { execute, installSignalHandlers } from './process.js';
 import { deliver, notify, type Envelope } from './delivery.js';
 import { publish } from './publish.js';
 import { search } from './search.js';
+import { probeSandbox } from './sandbox.js';
 
 const help = `Usage: wiki [--profile PATH] COMMAND
   init [--content-source URL|PATH]   Initialize an empty profile
   import-state SOURCE              Import collector state from Lucy
-  validate | doctor | jobs | status
+  validate | doctor | sandbox-check | jobs | status
   run JOB [--dry-run] | tick
   pi [--list-models | --print TEXT] [--provider NAME --model ID --thinking LEVEL]
   script NAME.py [ARGS...] | search QUERY | outbox [--deliver] | publish
@@ -32,7 +33,8 @@ async function dispatch(cfg: Config, command: string, args: string[]): Promise<u
       return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('%', '%%');
     };
     process.stdout.write(readFileSync(join(cfg.source, 'deploy/wiki.service.in'), 'utf8')
-      .replaceAll('@PROFILE@', escape(cfg.profile)).replaceAll('@SOURCE@', escape(cfg.source).replaceAll('$', '$$')));
+      .replaceAll('@PROFILE@', escape(cfg.profile)).replaceAll('@SOURCE@', escape(cfg.source).replaceAll('$', '$$'))
+      .replaceAll('@NODE@', escape(process.execPath).replaceAll('$', '$$')));
     return;
   }
   if (command === 'init') return initialize(cfg, parse({'content-source': {type: 'string'}}).values['content-source'] as string | undefined);
@@ -45,14 +47,18 @@ async function dispatch(cfg: Config, command: string, args: string[]): Promise<u
   }
   if (command === 'tick') return tick(cfg);
   requireProfile(cfg);
+  if (command === 'sandbox-check') return withProfileLock(cfg.state, async () => ({status: 'ok', checks: await probeSandbox(agentRequest(cfg))}));
   if (command === 'doctor') {
     const checks = {sdk: existsSync(join(cfg.source, 'node_modules/@earendil-works/pi-coding-agent/package.json')),
       schema: existsSync(join(cfg.wiki, 'SCHEMA.md')), index: existsSync(join(cfg.wiki, 'index.md')),
-      models: existsSync(join(cfg.profile, '.pi/agent/models.json')), git: false, python: false};
+      models: existsSync(join(cfg.profile, '.pi/agent/models.json')), git: false, python: false, sandbox: false};
     for (const [key, argv] of [['git', ['git','--version']], ['python', [cfg.python(),'--version']]] as const) {
       try { await execute([...argv], {cwd: cfg.repo, env: cfg.env(), timeout: 10}); checks[key] = true; } catch { /* reported below */ }
     }
-    return {status: Object.values(checks).every(Boolean) ? 'ok' : 'error', checks, note: 'Offline checks only; use wiki pi --list-models and a model smoke test.'};
+    let sandboxError;
+    try { await withProfileLock(cfg.state, () => probeSandbox(agentRequest(cfg))); checks.sandbox = true; }
+    catch (error) { sandboxError = errorText(error); }
+    return {status: Object.values(checks).every(Boolean) ? 'ok' : 'error', checks, sandboxError, note: 'Local checks only; use wiki pi --list-models and a model smoke test.'};
   }
   if (command === 'script') {
     const name = args.shift();

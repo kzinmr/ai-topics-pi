@@ -1,9 +1,0 @@
-.git
-.venv
-.local
-profiles
-node_modules
-__pycache__
-*.pyc
-.env
-dist

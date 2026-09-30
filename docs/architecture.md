@@ -11,7 +11,7 @@ flowchart TD
     R -->|Node IPC| W[Node.js SDK worker]
     W --> SDK[Pi AgentSession]
     SDK --> LLM[Local LLM / compatible API]
-    SDK --> TOOLS[Pi tools / extensions]
+    SDK --> TOOLS[Pi tools / OS sandbox]
     TOOLS --> WIKI[Wiki + index + log]
     W --> R
     R --> DB[SQLite runs / claims]
@@ -29,6 +29,7 @@ Pi SDK `@earendil-works/pi-coding-agent` の固定版を利用します。
 | runner.ts / schedule.ts | ジョブ順序、依存鮮度、UTC cron、catch-up |
 | state.ts | Node 標準 SQLite、実行記録、claim、profile mutex |
 | agent.ts / agent-worker.ts | worker 起動、IPC、deadline、終了処理 |
+| sandbox.ts / sandbox-tools.ts / tool-worker.ts | bubblewrap、標準ツール委譲、検索・原文追加 broker |
 | agent-session.ts | Pi SDK の model・resource・session 設定と実行 |
 | results.ts | triage の出典同一性、backlog 完了記録の検証 |
 | process.ts | collector / Git / 配信 subprocess の lifecycle |
@@ -56,7 +57,8 @@ stopReason を検証。途中の失敗が Pi の retry で回復した場合も�
 message_end イベントから usage を集め、本文とは分けて保存。session ID/path も記録します。
 
 worker はジョブ単位の独立プロセスです。起動時から profile HOME / 認証環境を設定するため、
-親の process.env を書き換えずに SDK と標準 bash tool が同じ profile を使えます。
+親の process.env を書き換えずに SDK が profile の認証を使用します。
+標準ツールは別の bubblewrap process 内で動き、環境変数は公開値だけの許可リストです。
 IPC はアプリケーションの request/result を運び、モデルイベントの stdout 解析は行いません。
 終了時は runtime.dispose()。timeout では SDK abort を要求し、終了しない worker を強制停止。
 Pi tools の中断処理に加え、runner が管理する process group も終了させます。
@@ -109,7 +111,14 @@ init は destination の AGENTS.md を設置し、原本を private state に保
 WIKI_SEARCH_COMMAND は JSON argv、通知 route も argv と stdin envelope の明示契約です。
 SDK integration test は追加 extension の実 tool call と結果受渡しも検証します。
 
-Pi/bash は実行 OS user の権限を持ち、profile 内の秘密情報を tool から隔離する sandbox
-ではありません。秘密と権限の分離には別 user/container を使用します。Pi sessions と
-collector state は private artifact。保存する run logs の既知の secret 値はマスクします。
+Pi SDK はホストで認証とモデル通信を扱い、read/write/edit/bash/grep/find/ls は
+bubblewrap 内の worker へ委譲します。Pi 標準ツールの schema と処理をそのまま使い、
+独自 agent loop は実装しません。対話の !/!! も同じ境界です。PowerShell は無効です。
+公開コード・依存・checkpoint は読み取り専用、Wiki と専用 scratch は書込み可能。
+raw/transcripts は読み取り専用、triage/grouping/wiki-health では Wiki 全体も読み取り専用です。
+認証、secrets、local 設定、DB、session、Git metadata はマウントしません。
+調査ジョブだけ tool 通信を許可し、web_search が検索キーをホストで使用します。
+save_raw は新規記事だけを排他的に作成します。sandbox 起動失敗時は停止します。
+明示 extensions、収集・通知・公開コードは信頼済みホストコードであり、この境界の外です。
+Pi sessions と collector state は private artifact。run logs の既知の secret 値はマスクします。
 Git 公開は wiki/ に限定し、既存 staged 変更があれば停止。コンテンツの hooks を実行します。

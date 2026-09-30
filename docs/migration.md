@@ -41,7 +41,12 @@ source feeds と hot-topics は ai-topics repository を継続使用します。
 
 ## 3. オフライン検証と接続テスト
 
+[配備手順](deployment.md) に従って Linux の bubblewrap を準備します。
+既存 Pi profile もそのまま使えますが、コード更新後は service を再生成してください。
+明示 extension はホストコードとして確認し、必要な調査ジョブだけ `pi.network_jobs` に設定します。
+
 ```sh
+bin/wiki sandbox-check
 bin/wiki doctor
 bin/wiki run blog-triage --dry-run
 bin/wiki script wiki_health.py --json

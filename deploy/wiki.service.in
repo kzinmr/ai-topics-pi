@@ -4,7 +4,11 @@ Description=Pi AI Topics scheduled work
 [Service]
 Type=oneshot
 Environment="AI_TOPICS_PROFILE=@PROFILE@"
-ExecStart="@SOURCE@/bin/wiki" tick
+ExecStartPre="@NODE@" "@SOURCE@/dist/cli.js" sandbox-check
+ExecStart="@NODE@" "@SOURCE@/dist/cli.js" tick
 TimeoutStartSec=infinity
 KillMode=control-group
 UMask=0077
+NoNewPrivileges=yes
+TasksMax=256
+MemoryMax=4G

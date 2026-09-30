@@ -4,6 +4,7 @@ export interface PiSettings {
   model?: string;
   thinking?: 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   extensions?: string[];
+  network_jobs?: string[];
 }
 export interface Job {
   name: string;
@@ -34,6 +35,8 @@ export interface AgentResult { text: string; usage: unknown[]; sessionFile?: str
 export interface AgentRequest {
   source: string; profile: string; repo: string; state: string;
   pi: PiSettings; prompt?: string; mode: 'prompt' | 'models' | 'interactive';
+  job?: string;
+  python?: string;
 }
 export type WorkerReply = { ok: true; result: AgentResult | unknown[] | null } | { ok: false; error: string };
 export interface RunRow {

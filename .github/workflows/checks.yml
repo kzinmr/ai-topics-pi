@@ -2,7 +2,7 @@ name: checks
 on: [push, pull_request]
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -14,11 +14,11 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: pip install --require-hashes -r requirements.lock
+      - run: sudo tools/setup-linux-sandbox
       - run: npm run typecheck
       - run: npm test
       - run: bin/wiki validate
       - run: python3 -m compileall -q scripts tests tools
       - run: python3 tools/check-public-tree.py
-      - run: docker build -f deploy/Dockerfile -t ai-topics-pi .
-      - run: docker run --rm --network none --entrypoint node ai-topics-pi --test tests/runtime.test.mjs tests/sdk.test.mjs tests/tui.test.mjs
-      - run: docker run --rm --network none --entrypoint /app/bin/test-collectors ai-topics-pi
+      - run: bin/wiki --profile .local/ci-sandbox init
+      - run: bin/wiki --profile .local/ci-sandbox sandbox-check

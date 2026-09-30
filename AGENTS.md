@@ -14,5 +14,10 @@ Keep Nana unchanged. Secrets and run artifacts stay in ignored profile directori
 Validate with `npm test`, `npm run typecheck`, `bin/wiki validate`, Python
 compileall for scripts/tests/tools, and `python3 tools/check-public-tree.py`.
 SDK tests must use a loopback model fixture and temporary profiles. Preserve the
-runs.db schema and checkpoint lineage rules. Update wrappers, Docker, CI, prompts
+runs.db schema and checkpoint lineage rules. Update wrappers, deployment, CI, prompts
 and documentation together when changing the runtime or path contract.
+
+Linux bubblewrap is mandatory for all Pi standard tools and interactive shell
+commands. Never fall back to host execution. Keep credentials and mutable control
+state out of tool mounts/environment. Run SDK/sandbox tests on a host that permits
+user namespaces. Explicit Pi extensions are trusted host code, not sandboxed code.

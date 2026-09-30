@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { Config } from './config.js';
 import { atomicWrite, errorText, inside, writeJson } from './files.js';
-import { runAgent } from './agent.js';
+import { agentRequest, runAgent } from './agent.js';
+import { checkSandbox } from './sandbox.js';
 import { execute } from './process.js';
 import { requireProfile } from './profile.js';
 import { Store, withProfileLock } from './state.js';
@@ -48,6 +49,7 @@ export async function runJob(cfg: Config, store: Store, job: Job, agent: Agent =
   try {
     const reason = dependenciesReady(cfg, store, job, at);
     if (reason) throw new Error(reason);
+    if (agent === runAgent && !job.no_agent) await checkSandbox(agentRequest(cfg, job));
     let context = '';
     if (job.script) {
       context = await execute([cfg.python(), inside(cfg.scripts, job.script)], {cwd: cfg.scripts, env: cfg.env(), timeout: job.script_timeout_seconds});
@@ -104,6 +106,7 @@ export async function runJob(cfg: Config, store: Store, job: Job, agent: Agent =
 export async function run(cfg: Config, name: string, agent: Agent = runAgent): Promise<JsonObject> {
   requireProfile(cfg);
   return withProfileLock(cfg.state, async () => {
+    if (agent === runAgent) await checkSandbox(agentRequest(cfg));
     const store = new Store(cfg.state);
     try { store.requireIdle(); return await runJob(cfg, store, cfg.job(name), agent); }
     finally { store.close(); }
@@ -113,6 +116,7 @@ export async function tick(cfg: Config, at = new Date(), agent: Agent = runAgent
   requireProfile(cfg);
   at = new Date(Math.floor(at.getTime() / 60000) * 60000);
   return withProfileLock(cfg.state, async () => {
+    if (agent === runAgent) await checkSandbox(agentRequest(cfg));
     const store = new Store(cfg.state);
     try {
       store.requireIdle();

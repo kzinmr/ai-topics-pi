@@ -85,14 +85,32 @@ test('SDK bash tools receive the profile environment without changing the parent
   assert.ok(tool);assert.ok(JSON.stringify(tool).includes(cfg.profile));assert.ok(JSON.stringify(tool).includes(cfg.repo));
   assert.equal(process.env.HOME,operatorHome);
 });
+test('model-requested native tools cannot read credentials or change runner state',async t=>{
+  const {cfg,requests}=await fixture(t,(_req,res,_body,n,cfg)=>{
+    if(n===1)stream(res,{role:'assistant',tool_calls:[
+      ['read',{path:join(cfg.state,'secrets.json')}],
+      ['write',{path:join(cfg.state,'secrets.json'),content:'replacement'}],
+      ['bash',{command:'env; cat "$HOME/.ai-topics/secrets.json"'}],
+    ].map(([name,args],index)=>({index,id:`denied_${index}`,type:'function',function:{name,arguments:JSON.stringify(args)}}))},'tool_calls');
+    else stream(res,{role:'assistant',content:'Boundaries respected'});
+  });
+  writeJson(join(cfg.state,'secrets.json'),{PRIVATE_TOKEN:'synthetic-private-canary'});
+  assert.equal((await runAgent(cfg,'Exercise denied operations',30)).text,'Boundaries respected');
+  const results=requests[1].body.messages.filter(m=>m.role==='tool');
+  assert.equal(results.length,3);
+  assert.doesNotMatch(JSON.stringify(results),/synthetic-private-canary|fixture-test-key/);
+  assert.match(readFileSync(join(cfg.state,'secrets.json'),'utf8'),/synthetic-private-canary/);
+});
 test('SDK rejects truncated output',async t=>{
   const {cfg}=await fixture(t,(_req,res)=>stream(res,{role:'assistant',content:'partial'},'length'));
   writeJson(join(cfg.profile,'.pi/agent/settings.json'),{retry:{enabled:false},compaction:{enabled:false}});
   await assert.rejects(runAgent(cfg,'test',30),/length|did not complete/);
 });
 test('SDK timeout aborts a stalled request and permits the next session',async t=>{
-  const {cfg}=await fixture(t,(_req,res,_body,n)=>{if(n>1)stream(res,{role:'assistant',content:'Recovered'});});
-  await assert.rejects(runAgent(cfg,'wait',1),/timed out/);
+  let stalled=true;
+  const {cfg,requests}=await fixture(t,(_req,res)=>{if(!stalled)stream(res,{role:'assistant',content:'Recovered'});});
+  await assert.rejects(runAgent(cfg,'wait',3),/timed out/);
+  assert.ok(requests.length>0);stalled=false;
   assert.equal((await runAgent(cfg,'next',30)).text,'Recovered');
 });
 test('SDK loads explicit extensions and passes their tool results back to the model',async t=>{

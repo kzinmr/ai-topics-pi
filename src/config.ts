@@ -84,4 +84,5 @@ export function validatePi(settings: PiSettings): void {
   for (const key of ['provider', 'model', 'thinking'] as const) if (settings[key] !== undefined && typeof settings[key] !== 'string') throw new Error(`pi.${key} must be a string`);
   if (settings.thinking && !['off','minimal','low','medium','high','xhigh','max'].includes(settings.thinking)) throw new Error('invalid thinking level');
   if (settings.extensions && (!Array.isArray(settings.extensions) || !settings.extensions.every(x => typeof x === 'string'))) throw new Error('pi.extensions must be a list of paths');
+  if (settings.network_jobs !== undefined && (!Array.isArray(settings.network_jobs) || !settings.network_jobs.every(x => typeof x === 'string'))) throw new Error('pi.network_jobs must be a list of job names');
 }

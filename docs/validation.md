@@ -5,7 +5,7 @@
 - Pi npm package: `@earendil-works/pi-coding-agent@0.99.1`。
   npm install --ignore-scripts 成功、依存監査は検出0件。
 - host: Python 3.12.3 / Node.js 24.15.0。
-- 自動テスト39件成功（Node.js 32件、Python collectors 7件）。
+- 自動テスト45件成功（Node.js 38件、Python collectors 7件）。
   固定版の実 Pi SDK と localhost の OpenAI 互換 SSE fixture で
   API key の環境展開、Authorization、Local LLM 用 dummy key、Pi 標準 edit / bash tool、
   最終回答、usage、session 保存、明示的に追加した extension の tool call を検証。
@@ -21,8 +21,24 @@
 - profile init の上書き拒否、SQLite backup と state path 再配置、credential 非移行。
 - TypeScript strict typecheck / build、validate（30 jobs / enabled 27）、Python compileall、
   public-tree 検査、生成した service の systemd-analyze verify 成功。
-- Docker の multi-stage build 成功。専用イメージ内でも network none、既存 volume 無しで
-  同じ39件のテストが成功。
+
+## ホスト実行と OS sandbox
+
+Linux ホスト上で bubblewrap を使用。全標準ツールと TUI の !/!! を隔離し、SDK の
+認証・モデル接続はホストに残します。SDK worker のプロセス分離だけを安全境界とは扱いません。
+
+- `sandbox-check` の12項目：Wiki/scratch 書込み、raw 読取り、管理領域・auth・symlink の
+  読取り拒否、管理領域・auth・scripts・raw の書込み拒否、TCP 拒否、認証環境変数の非継承。
+- 実 Pi SDK の模擬モデルが read/write/bash を要求しても、秘密値を読めず管理状態が変わらない。
+- 調査ジョブのローカル HTTP fixture 取得と Python helper、通常ジョブの通信拒否。
+- 新規 raw 保存、既存 raw 上書き拒否、triage の Wiki 書込み拒否。
+- 対話シェルの終了コード保持、危険な mount path の拒否、tool timeout と次の実行への復帰。
+- systemd は Node の絶対パスと sandbox 事前検査を使用。生成 unit の構文検証に成功。
+- NoNewPrivileges=yes / TasksMax=256 / MemoryMax=4G を付けた一時 user service でも検査成功。
+
+テストは user namespaces とローカル TCP を利用可能なホストで実行します。
+本番 profile・実モデル・認証・収集・通知は使用していません。
+明示 Pi extensions と信頼済み collector/publisher は tool sandbox の対象外です。
 
 ## Sign in with ChatGPT
 
@@ -30,7 +46,7 @@
 `0.99.0` に `/login openai` による ChatGPT プラン利用が入り、`0.99.1` で配布物の
 ログイン module 欠落が修正されています。バージョン更新・OAuth の独自実装は不要でした。
 
-実 Pi SDK に対して、外部認証通信を模擬した追加3テストを host / Docker で実施:
+実 Pi SDK に対して、外部認証通信を模擬した追加3テストをホストで実施:
 
 - profile の installation ID、動的 client 登録、PKCE、プラン利用 scope を伴うログインと
   auth.json 保存、別 ModelRuntime での再利用。
@@ -66,6 +82,6 @@ rehearsal / raw logs / imported state は Git から除外しています。
   localhost fixture は protocol と tools の検証であり、実モデル品質の検証ではありません。
 - 外部 RSS / X / IMAP / sitemap の実収集、実 Discord / Telegram 配信。
 - ai-topics コンテンツへの本番 push、Hermes 停止、Pi の定期起動有効化。
-- macOS / WSL / ARM での実行、optional Go CLI の target ごとのビルド。
+- WSL2 / ARM での実行、optional Go CLI の target ごとのビルド。macOS は現在未対応。
 
 有効化は migration.md / deployment.md に従い小さい1バッチから行ってください。
