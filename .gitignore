@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Pi runtime and private profiles
+node_modules/
+.local/
+profiles/

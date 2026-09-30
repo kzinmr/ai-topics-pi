@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+source_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+export AI_TOPICS_SOURCE="$source_root"
+export PYTHONPATH="$source_root/src${PYTHONPATH:+:$PYTHONPATH}"
+python_bin="${AI_TOPICS_PYTHON:-$source_root/.venv/bin/python}"
+if [ ! -x "$python_bin" ]; then python_bin=python3; fi
+exec "$python_bin" -m ai_topics_pi "$@"

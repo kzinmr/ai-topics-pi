@@ -1,0 +1,11 @@
+services:
+  wiki:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    volumes:
+      - profiles:/data
+    # No daemon. Invoke init/run/tick explicitly or from the host scheduler.
+    init: true
+volumes:
+  profiles:

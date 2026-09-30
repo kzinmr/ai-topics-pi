@@ -1,0 +1,10 @@
+[Unit]
+Description=Pi AI Topics scheduled work
+
+[Service]
+Type=oneshot
+Environment="AI_TOPICS_PROFILE=@PROFILE@"
+ExecStart="@SOURCE@/bin/wiki" tick
+TimeoutStartSec=infinity
+KillMode=control-group
+UMask=0077

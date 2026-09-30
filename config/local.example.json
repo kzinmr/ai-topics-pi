@@ -1,0 +1,10 @@
+{
+  "pi": {"provider": "local", "model": "local-model", "thinking": "off"},
+  "max_catchup_minutes": 1440,
+  "publish": false,
+  "delivery": {
+    "operations": {"kind": "outbox"},
+    "hot-posts": {"kind": "outbox"},
+    "digest": {"kind": "outbox"}
+  }
+}

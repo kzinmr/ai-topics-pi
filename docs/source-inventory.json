@@ -1,0 +1,97 @@
+{
+  "source_commit": "b87a0a20246e08c97ddbf5eacfcffcdbfeaf4bc1",
+  "collectors": [
+    {
+      "file": "ai-topics-agent/assets/scripts/portable_paths.py",
+      "sha256": "30828a3991ba32079df17cae3556e743a84ae39749e2a012aa1a814b3b9e2470"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/daily_inbox_collect.py",
+      "sha256": "8494e2c8b2cf2e95ffab7e06b4913084497c7502c20116da615a2dbb80030217"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/blog_ingest.py",
+      "sha256": "c3869c9e54c2d96d45a29dc9aa26dd2ba822c769e007372dc0424e9687d42483"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/blog_checkpoint.py",
+      "sha256": "65c5add5791ea83714a61cade79639bd613e85274e7de6aedba6c8ba91d6a085"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/process_email.py",
+      "sha256": "4903a960848f2b70e45d65fbe6cfaaf789135f4aafbecb6b9366141c9457d2d1"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/newsletter_checkpoint.py",
+      "sha256": "906e18b78341f78ab3701e8f1e438b8070eb521176c901de8cf8042fdacede50"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/dreaming.py",
+      "sha256": "13317cb56bf24607cda6ab2fb3253faef4dff2d52c478e60edb30a55e0b2b4a2"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/dreaming_collect.py",
+      "sha256": "735b729620d672797356d493a4e7198ac7d8240cff2e09b04c43e65971f69f39"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/dreaming_checkpoint.py",
+      "sha256": "103cbcef80dd039f436629fe0725a70bb013e76dda41ba852c51ba685c7769e0"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/fetch_x_accounts.py",
+      "sha256": "7138bbdf3d403db10d69608820d4800d50b84ea82ddc74180874b0ffe2c0b3f0"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/fetch_x_bookmarks.py",
+      "sha256": "ebbfc26d66ce18ac52543adc76181ced3fa1e5d96ee7b95091415ef418b0c6f0"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/fetch_article.py",
+      "sha256": "d6997fa4e1d3758a9b6b1399b25f67c44fdc4d7f083cfa4dc2501a8536baa6de"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/import_opml.py",
+      "sha256": "0ead6841f1fb6ec5d315f691bbbfeb31ba208b02b59ee060d6c7cdfa242391d0"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/sitemap_monitor.py",
+      "sha256": "2b1ba95a237688d1b34df04adc73a002167faab89db814c09ac13d16e778d58c"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/tag_audit.py",
+      "sha256": "ded3f17de9f4c396f9320dc8b91e4e0e96cd443da57010a3468da8de461fb78a"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/wiki_health.py",
+      "sha256": "71eaef473a2593b1fabf3ebbd5743a253f7f59080bbc68554769e1e24732fe74"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/wiki_health_json.py",
+      "sha256": "f389b6b2318ea3e14f86637385decf28305afa9fb0d4092d5258454b1902aa7c"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/raw_backlog_collect.py",
+      "sha256": "875a0455f3b2e78ad7416c1f12f8c4409bf4d6bed7e099f49a29f7ec7e8bd910"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/ai_topics_slack_hot_posts_context.py",
+      "sha256": "ee1f7b39f0d534d85db0c9e8b73185cc134e5fbc7f28eb2beec4baf98261daa8"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/detect_hierarchy_candidates.py",
+      "sha256": "be672f6be9cab5557843c30d32eca2d7d59c2143249cc92fc0777040e65d1576"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/validate_index.py",
+      "sha256": "1b3019744ca0a5791321e0382f79337b822e9556108471b601bed6464a33091b"
+    },
+    {
+      "file": "ai-topics-agent/assets/scripts/wiki_graph_analysis_verified.py",
+      "sha256": "8fc3d2f39b84b073b37d51837a1c97a12ef3bbd1cd70faff25a0f27da82dab76"
+    }
+  ],
+  "content_commit": "f389bb094fee43bf05799ae7efd0fcd482d2b6e5",
+  "live_job_count": 30,
+  "live_enabled": 27,
+  "live_disabled": 3
+}
