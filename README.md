@@ -7,6 +7,7 @@ Lucy の AI 情報収集と Karpathy 型 LLM Wiki を、**TypeScript runner と 
 - **Pi SDK**：モデル接続、エージェント実行、標準・拡張ツール、skill / prompt 読込み、セッション管理。
 - **独立 Python scripts**：RSS / newsletter / X / sitemap の収集と Wiki の品質検査。
 - **Local LLM / OpenAI 互換 API**：Pi 標準の models.json で切替。Pi `0.99.1` を固定。
+- **ChatGPT サブスクリプション**：Pi 標準の `/login openai` で接続。同じ SDK を定期ジョブにも使用。
 - Lucy の30ジョブ、UTC 時刻、有効27・停止3を保持。[ジョブ対応表](docs/jobs.md)。Nana は対象外です。
 
 ## セットアップ
@@ -80,6 +81,48 @@ Pi native provider / OAuth も利用可能です。
 固定版の `node_modules/@earendil-works/pi-coding-agent/docs/models.md` と
 [公式 SDK 文書](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/sdk.md) を参照してください。
 `doctor` はローカルの構成を検査します。認証・tool calling・編集品質は実モデルで確認します。
+
+### ChatGPT プランで OpenAI モデルを利用する
+
+Pi `0.99.0` で追加された **Sign in with ChatGPT** に対応しています。
+固定版 `0.99.1` は OpenAI ログインの配布ファイル不備も修正した版です。
+利用する provider は **`openai`**。`openai-codex` は従来の別経路です。
+[Pi リリース](https://github.com/earendil-works/pi/releases/tag/v0.99.1)・
+[OpenAI の案内](https://learn.chatgpt.com/docs/sign-in-with-chatgpt)。
+
+1. 定期ジョブと同じ `AI_TOPICS_PROFILE` を指定して `bin/wiki pi` を起動。
+2. TUI 内で `/login openai` を入力し、**Sign in with ChatGPT** を選択。
+   ブラウザでログインし、ChatGPT プランの利用を許可します。
+3. `/model` で OpenAI のモデルを選び、短い質問で接続を確認。
+4. 定期ジョブの `.ai-topics/local.json` の `pi` も次のように変更します。
+   model ID は選択したモデルに合わせ、他の設定は保持します。
+
+```json
+{"pi": {"provider": "openai", "model": "gpt-6.1-sol", "thinking": "off"}}
+```
+
+TUI で保存した Pi の既定モデルより **local.json の明示指定が優先**されます。
+job に `pi` があれば、その設定も優先されるため確認してください。
+OpenAI の組込み provider を使用するので、models.json への OpenAI 定義の追加や
+API key の設定は不要です。認証は profile の `.pi/agent/auth.json`、installation ID は
+`.pi/agent/settings.json` に保存され、定期ジョブの SDK worker も同じものを読みます。
+Pi が token の更新と保存を担当します。独自の OAuth 実装はありません。
+
+```sh
+bin/wiki pi --list-models
+bin/wiki pi --provider openai --model gpt-6.1-sol --print 'Reply only OK. Do not use tools.'
+```
+
+モデル一覧はローカルの catalog と認証設定の確認です。各アカウントでのモデル利用権や
+残り利用枠は保証しません。認証後の最後のコマンドで実際の疎通を確認します。
+SSH / Docker でブラウザの callback が届かない場合は、Pi の画面に最終 redirect URL を
+貼り付けます。ログイン時と定期実行時に同じ profile / volume を使ってください。
+
+対象プラン・利用枠は OpenAI 側の条件に従います。利用量は既存プランの枠を消費し、
+接続アプリごとの上限や追加 credit の利用設定は [ChatGPT Usage](https://chatgpt.com/settings/usage)
+で管理します。保存済み OAuth の更新失敗時に API key へ自動 fallback はしません。
+ただし `/logout` 後は残っている `OPENAI_API_KEY` 等が使われ得るため、サブスクリプション
+専用の profile には OpenAI API key を設定しないでください。
 
 ## 通知・公開・拡張
 

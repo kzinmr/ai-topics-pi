@@ -43,6 +43,14 @@ worker は `ModelRuntime` で provider/認証/model を読み、`createAgentSess
 skill・prompt・extension・共通指示を設定し、`SessionManager` が履歴を永続化します。
 LLM API、tool calling、context compaction、モデルの自動 retry は Pi に任せます。
 
+OpenAI provider は API key と Sign in with ChatGPT の双方を扱います。
+native TUI の `/login openai` が profile の installation ID を使って認証し、
+ModelRuntime が保存済み OAuth の再利用・refresh・永続化を担当します。
+`allowModelNetwork: false` と `PI_OFFLINE` は起動時の catalog 更新等を停止する設定で、
+明示した OAuth ログインやモデル接続を禁止するものではありません。
+定期ジョブは local.json/job の provider・model を選ぶため、TUI の一時的な選択だけでは
+ジョブの接続先は変わりません。設定例は README の ChatGPT プラン節を参照してください。
+
 定期 task は `session.prompt()` の完了を待ち、session 内の最後の assistant message と
 stopReason を検証。途中の失敗が Pi の retry で回復した場合も、最終状態で判定します。
 message_end イベントから usage を集め、本文とは分けて保存。session ID/path も記録します。

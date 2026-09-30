@@ -68,6 +68,10 @@ bind mount を使う場合は実行 UID/GID と profile 所有者を合わせま
 
 `bin/wiki pi --list-models` はモデルの設定確認、`--print` の短い質問は疎通確認。
 `doctor` はネットワーク/認証/モデル能力を検証しません。
+ChatGPT サブスクリプションを使う場合は、同じ profile / volume の対話 TUI で
+`/login openai` → Sign in with ChatGPT を実行し、local.json の provider/model を指定します。
+Docker の対話入口は `docker compose -f deploy/compose.yaml run --rm wiki pi`。
+OAuth callback がブラウザから届かなければ、最終 redirect URL を Pi に貼り付けます。
 不要な source job を manifest で停止し、その依存段階も停止します。
 全30 job の定義は Lucy の機能対応を示すもので、認証前に全 source を実行する推奨ではありません。
 

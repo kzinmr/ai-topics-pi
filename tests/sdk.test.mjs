@@ -8,7 +8,9 @@ import { tmpdir } from 'node:os';
 import { Config } from '../dist/config.js';
 import { initialize } from '../dist/profile.js';
 import { writeJson } from '../dist/files.js';
-import { runAgent, listModels } from '../dist/agent.js';
+import { agentRequest, runAgent, listModels } from '../dist/agent.js';
+import { makeModelRuntime } from '../dist/agent-session.js';
+import { SettingsManager } from '@earendil-works/pi-coding-agent';
 
 async function fixture(t, handle) {
   const root=mkdtempSync(join(tmpdir(),'wiki-sdk-'));
@@ -104,4 +106,93 @@ test('SDK loads explicit extensions and passes their tool results back to the mo
   assert.equal((await runAgent(cfg,'Use fixture_echo',30)).text,'Extension worked');
   assert.ok(requests[0].body.tools.some(t=>t.function.name==='fixture_echo'));
   assert.match(JSON.stringify(requests[1].body.messages),/fixture-result/);
+});
+
+const tokenResponse = (access='fixture-oauth-access') => ({
+  access_token:access,refresh_token:'fixture-refresh-rotated',expires_in:3600,
+  scope:'openid profile email offline_access resource.invoke chatgpt.tokens.use.direct',id_token:'fixture-id-token',
+});
+const oauthCredential = expires => ({type:'oauth',access:'fixture-oauth-access',refresh:'fixture-refresh',
+  expires,clientId:'fixture-issued-client',scopes:['chatgpt.tokens.use.direct']});
+
+test('built-in OpenAI login registers ChatGPT plan access and persists it in this profile',async t=>{
+  const {cfg}=await fixture(t,()=>assert.fail('login must not call inference'));
+  const runtime=await makeModelRuntime(agentRequest(cfg));
+  const settings=SettingsManager.create(cfg.repo,join(cfg.profile,'.pi/agent'));
+  const deviceId=settings.getOrCreateDeviceId();
+  assert.equal(settings.getOrCreateDeviceId(),deviceId);
+  let authorization,exchanged;
+  t.mock.method(globalThis,'fetch',async(url,options)=>{
+    assert.equal(String(url),'https://auth.openai.com/api/accounts/oauth/token');
+    exchanged=new URLSearchParams(options.body);
+    return Response.json(tokenResponse());
+  });
+  await runtime.login('openai','oauth',{
+    signal:new AbortController().signal,
+    notify:event=>{if(event.type==='auth_url')authorization=new URL(event.url);},
+    prompt:async()=>{
+      assert.ok(authorization);
+      assert.equal(authorization.searchParams.get('client_id'),'dynamic_agent_client');
+      assert.equal(authorization.searchParams.get('ext_agent_host_id'),`urn:uuid:${deviceId}`);
+      assert.ok(authorization.searchParams.get('scope').split(' ').includes('chatgpt.tokens.use.direct'));
+      const callback=new URL(authorization.searchParams.get('redirect_uri'));
+      callback.search=new URLSearchParams({code:'fixture-code',client_id:'fixture-issued-client',state:authorization.searchParams.get('state')}).toString();
+      return callback.href;
+    },
+  },{getDeviceId:()=>deviceId});
+  assert.equal(exchanged.get('grant_type'),'authorization_code');
+  assert.equal(exchanged.get('client_id'),'fixture-issued-client');
+  assert.ok(exchanged.get('code_verifier'));
+  const saved=JSON.parse(readFileSync(join(cfg.profile,'.pi/agent/auth.json'),'utf8'));
+  assert.equal(saved.openai.clientId,'fixture-issued-client');
+  assert.equal(saved.openai.type,'oauth');assert.equal(runtime.isUsingSubscription('openai'),true);
+  assert.equal((await runtime.getAuth('openai')).auth.apiKey,'fixture-oauth-access');
+  const restarted=await makeModelRuntime(agentRequest(cfg));
+  assert.equal(restarted.isUsingSubscription('openai'),true);
+});
+
+test('OpenAI subscription refresh persists rotated tokens; failed refresh does not use an API key',async t=>{
+  const {cfg}=await fixture(t,()=>assert.fail('refresh must not call inference'));
+  const path=join(cfg.profile,'.pi/agent/auth.json');
+  writeJson(path,{openai:oauthCredential(0)});
+  let fail=false,refreshes=0;
+  t.mock.method(globalThis,'fetch',async(url,options)=>{
+    assert.equal(String(url),'https://auth.openai.com/api/accounts/oauth/token');
+    const body=new URLSearchParams(options.body);
+    assert.equal(body.get('grant_type'),'refresh_token');
+    assert.equal(body.get('client_id'),'fixture-issued-client');refreshes++;
+    return fail ? Response.json({error:'invalid_grant'},{status:400}) : Response.json(tokenResponse('fixture-new-access'));
+  });
+  const runtime=await makeModelRuntime(agentRequest(cfg));
+  const auth=await runtime.getAuth('openai',{env:{OPENAI_API_KEY:'fixture-api-key'}});
+  assert.equal(auth.auth.apiKey,'fixture-new-access');assert.ok(refreshes>=1);
+  assert.equal(JSON.parse(readFileSync(path,'utf8')).openai.refresh,'fixture-refresh-rotated');
+  writeJson(path,{openai:oauthCredential(0)});fail=true;
+  await assert.rejects(runtime.getAuth('openai',{env:{OPENAI_API_KEY:'fixture-api-key'}}),/OAuth refresh failed/);
+});
+
+test('SDK worker sends subscription credentials to Responses instead of the ambient API key',async t=>{
+  const {cfg,requests}=await fixture(t,(_req,res)=>{
+    res.writeHead(200,{'Content-Type':'text/event-stream'});
+    const item={id:'msg_fixture',type:'message',role:'assistant',content:[{type:'output_text',text:'Subscription OK',annotations:[]}]};
+    for(const event of [
+      {type:'response.created',response:{id:'resp_fixture',status:'in_progress'}},
+      {type:'response.output_item.added',output_index:0,item:{...item,content:[]}},
+      {type:'response.content_part.added',item_id:item.id,output_index:0,content_index:0,part:{type:'output_text',text:'',annotations:[]}},
+      {type:'response.output_text.delta',item_id:item.id,output_index:0,content_index:0,delta:'Subscription OK'},
+      {type:'response.output_item.done',output_index:0,item},
+      {type:'response.completed',response:{id:'resp_fixture',status:'completed',output:[item],usage:{input_tokens:100,output_tokens:10,total_tokens:110,input_tokens_details:{cached_tokens:0}}}},
+    ])res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+    res.end();
+  });
+  const modelPath=join(cfg.profile,'.pi/agent/models.json');
+  const baseUrl=JSON.parse(readFileSync(modelPath,'utf8')).providers.fixture.baseUrl;
+  writeJson(modelPath,{providers:{openai:{baseUrl}}});
+  writeJson(join(cfg.profile,'.pi/agent/auth.json'),{openai:oauthCredential(Date.now()+3600_000)});
+  cfg.local.pi={provider:'openai',model:'gpt-6.1-sol',thinking:'off'};
+  cfg.local.environment={OPENAI_API_KEY:'fixture-api-key'};
+  assert.equal((await runAgent(cfg,'Reply Subscription OK',30)).text,'Subscription OK');
+  assert.equal(requests.length,1);assert.equal(requests[0].path,'/v1/responses');
+  assert.equal(requests[0].auth,'Bearer fixture-oauth-access');
+  assert.equal(requests[0].body.model,'gpt-6.1-sol');
 });

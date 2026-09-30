@@ -5,7 +5,7 @@
 - Pi npm package: `@earendil-works/pi-coding-agent@0.99.1`。
   npm install --ignore-scripts 成功、依存監査は検出0件。
 - host: Python 3.12.3 / Node.js 24.15.0。
-- 自動テスト36件成功（Node.js 29件、Python collectors 7件）。
+- 自動テスト39件成功（Node.js 32件、Python collectors 7件）。
   固定版の実 Pi SDK と localhost の OpenAI 互換 SSE fixture で
   API key の環境展開、Authorization、Local LLM 用 dummy key、Pi 標準 edit / bash tool、
   最終回答、usage、session 保存、明示的に追加した extension の tool call を検証。
@@ -22,7 +22,26 @@
 - TypeScript strict typecheck / build、validate（30 jobs / enabled 27）、Python compileall、
   public-tree 検査、生成した service の systemd-analyze verify 成功。
 - Docker の multi-stage build 成功。専用イメージ内でも network none、既存 volume 無しで
-  同じ36件のテストが成功。
+  同じ39件のテストが成功。
+
+## Sign in with ChatGPT
+
+2026-09-30 に npm の最新公開版と固定版がともに `0.99.1` であることを確認。
+`0.99.0` に `/login openai` による ChatGPT プラン利用が入り、`0.99.1` で配布物の
+ログイン module 欠落が修正されています。バージョン更新・OAuth の独自実装は不要でした。
+
+実 Pi SDK に対して、外部認証通信を模擬した追加3テストを host / Docker で実施:
+
+- profile の installation ID、動的 client 登録、PKCE、プラン利用 scope を伴うログインと
+  auth.json 保存、別 ModelRuntime での再利用。
+- token refresh と更新済み token の保存。更新失敗時に環境の API key へ fallback しないこと。
+- SDK worker が保存済み OAuth を環境の API key より優先し、localhost の Responses API に
+  Bearer token と指定モデルを送って最終回答を受け取ること。
+
+テストの認証情報はすべて偽物で、実アカウントのブラウザ同意・利用権・残り利用枠・実モデル
+接続の検証ではありません。実行手順は README の ChatGPT プラン節を参照してください。
+X の提示投稿本文は取得できず、[OpenAI 公式案内](https://learn.chatgpt.com/docs/sign-in-with-chatgpt)、
+[Pi リリース](https://github.com/earendil-works/pi/releases/tag/v0.99.1)、固定 package の実装で確認しました。
 
 ## 実データによるオフライン rehearsal
 
