@@ -2,7 +2,8 @@
 set -eu
 source_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 export AI_TOPICS_SOURCE="$source_root"
-export PYTHONPATH="$source_root/src${PYTHONPATH:+:$PYTHONPATH}"
-python_bin="${AI_TOPICS_PYTHON:-$source_root/.venv/bin/python}"
-if [ ! -x "$python_bin" ]; then python_bin=python3; fi
-exec "$python_bin" -m ai_topics_pi "$@"
+if [ ! -f "$source_root/dist/cli.js" ]; then
+  echo 'Build the TypeScript runner first: npm ci --ignore-scripts && npm run build' >&2
+  exit 1
+fi
+exec node "$source_root/dist/cli.js" "$@"

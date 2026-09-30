@@ -1,5 +1,3 @@
 #!/bin/sh
 set -eu
-source_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-export PYTHONPATH="$source_root/src${PYTHONPATH:+:$PYTHONPATH}"
-exec python3 -m ai_topics_pi.search "$@"
+exec "$(dirname -- "$0")/wiki" search "$@"

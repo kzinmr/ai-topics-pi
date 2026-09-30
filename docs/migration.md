@@ -28,7 +28,7 @@ Hermes session/memory/plugin はコピーしません。移行コード以外に
 README の models.json / local.json / secrets.json を設定。RSS/X を利用する場合は
 `tools/install-source-tools` で target 用の binary を作成。
 RSS DB を import した場合は OPML の再登録不要。X は xurl の認証を destination で行う。
-`bin/wiki exec` 相当の汎用入口は設けていません。例えば以下は subprocess だけの HOME 指定です。
+source binary の認証・設定操作には、次のように subprocess の HOME を指定します。
 
 ```sh
 env HOME="$AI_TOPICS_PROFILE" "$AI_TOPICS_PROFILE/bin/xurl" --help
@@ -47,8 +47,8 @@ bin/wiki run blog-triage --dry-run
 bin/wiki script wiki_health.py --json
 bin/wiki script blog_checkpoint.py
 bin/wiki script dreaming.py
-bin/wiki pi -- --list-models
-bin/wiki pi -- --print 'Reply only OK. Do not use tools.'
+bin/wiki pi --list-models
+bin/wiki pi --print 'Reply only OK. Do not use tools.'
 ```
 
 最後のコマンドのみ選択した実モデルへ接続します。
@@ -64,8 +64,6 @@ bin/wiki pi -- --print 'Reply only OK. Do not use tools.'
 - `publish: true` を設定する場合は既存 hooks と Git 認証も検証。
 - deploy/wiki.timer 等で tick を有効化。Hermes と同じ情報源/Wikiへ同時書込みさせない。
 
-今回の開発では既存 Hermes を停止せず、移植先の定期実行・通知・本番公開も有効化していません。
-
 ## 回復と更新
 
 `status` と `.ai-topics/runs/<run>/` を確認。強制終了した `running` は
@@ -74,7 +72,7 @@ bin/wiki pi -- --print 'Reply only OK. Do not use tools.'
 通知の再試行は `outbox --deliver`、Git push の再試行は `publish`。
 
 コード更新は tick を止めて `git pull`、`npm ci --ignore-scripts`、
-`uv sync --frozen --extra collectors`、`validate`、`npm test`。
+`npm run build`、`uv sync --frozen --extra collectors`、`bin/wiki validate`、`npm test`。
 script/skill の profile コピーはなく、code checkout の更新が次回実行に反映されます。
 バックアップは停止中に profile 全体を保存（秘密・Pi session を含むため非公開）。
 rollback では Pi の書込みを止め、コンテンツ差分と既読状態をレビューしてから元 Lucy を再開。

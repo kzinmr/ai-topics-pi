@@ -5,27 +5,33 @@
 - Pi npm package: `@earendil-works/pi-coding-agent@0.99.1`。
   npm install --ignore-scripts 成功、依存監査は検出0件。
 - host: Python 3.12.3 / Node.js 24.15.0。
-- unit / integration 23件成功。実 Pi CLI と localhost の OpenAI 互換 SSE fixture で
-  API key の環境展開、Authorization、Pi 標準 edit tool、最終回答、usage、session 保存を検証。
+- 自動テスト36件成功（Node.js 29件、Python collectors 7件）。
+  固定版の実 Pi SDK と localhost の OpenAI 互換 SSE fixture で
+  API key の環境展開、Authorization、Local LLM 用 dummy key、Pi 標準 edit / bash tool、
+  最終回答、usage、session 保存、明示的に追加した extension の tool call を検証。
+- SDK の一時的な API エラーからの回復、profile HOME / cwd の引渡しと親環境の不変。
+- native TUI を pseudo-terminal で起動し、/new、正常終了、profile lock 解放を検証。
+- CLI の profile 選択、dry-run の無副作用、失敗時の終了コードと実行記録。
 - 失敗した collector の後続停止、triage ID/候補検証、新しい upstream と古い triage の拒否、
   UTC cron、永続 claim/catch-up、profile lock、crash 回復条件、timeout の子プロセス停止。
 - raw 不変、失敗した RSS/sitemap URL を既読にしない、空 mailbox の checkpoint 更新、
   nightly checkpoint の集約、backlog の不完全な完了記録を拒否。
 - 通知失敗後の独立再試行、Git hooks の実行と wiki/ のみの staging。
-- model API error、aborted、length、未完了イベントを成功としない。
+- model API error、length、timeout を成功とせず、timeout 後の次の session は成功。
 - profile init の上書き拒否、SQLite backup と state path 再配置、credential 非移行。
-- validate: 30 jobs / enabled 27。Python compileall、public-tree 検査、skill validator、
-  systemd-analyze verify 成功。
-- Docker build 成功。専用イメージ内で network none、既存 volume 無しのテストも実施。
+- TypeScript strict typecheck / build、validate（30 jobs / enabled 27）、Python compileall、
+  public-tree 検査、生成した service の systemd-analyze verify 成功。
+- Docker の multi-stage build 成功。専用イメージ内でも network none、既存 volume 無しで
+  同じ36件のテストが成功。
 
 ## 実データによるオフライン rehearsal
 
 移行元 content commit: `f389bb094fee43bf05799ae7efd0fcd482d2b6e5`。
 既存 ai-topics-agent commit: `b87a0a20246e08c97ddbf5eacfcffcdbfeaf4bc1`。
-local clone と read-only import を隔離された .local/rehearsal へ実施。
+TypeScript CLI の local clone と read-only import を隔離された .local/ts-rehearsal へ実施。
 
-- collector state JSON 1,008件、blogwatcher SQLite DB の移行成功。
-- doctor: Pi / Git / schema / index / models の存在チェックすべて成功。
+- collector state JSON 1,009件、blogwatcher SQLite DB の移行成功。
+- doctor: SDK / Git / Python / schema / index / models の存在チェックすべて成功。
 - Wiki health collector: entities 934、concepts 2,102、comparisons 35、raw articles 9,979。
   これは検査の実行確認であり、既存 Wiki の全 issue 解消を意味しません。
 - index validator: 3,136行、既知の破損パターン検出なし。

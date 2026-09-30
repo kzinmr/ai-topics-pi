@@ -6,7 +6,7 @@ README の setup 後、設定済み profile の絶対パスを指定して servi
 
 ```sh
 mkdir -p "$HOME/.config/systemd/user"
-python3 tools/render-systemd.py --profile "$AI_TOPICS_PROFILE" > "$HOME/.config/systemd/user/wiki.service"
+bin/wiki --profile "$AI_TOPICS_PROFILE" systemd-service > "$HOME/.config/systemd/user/wiki.service"
 cp deploy/wiki.timer "$HOME/.config/systemd/user/wiki.timer"
 systemctl --user daemon-reload
 systemctl --user enable --now wiki.timer
@@ -27,7 +27,8 @@ schedule の判定はホスト timezone に関係なく UTC。
 
 ## Docker
 
-image は Pi・Python collectors を含み、Hermes は含みません。root で profile の
+image はビルド済み TypeScript runner、Pi SDK、Python collectors を含みます。
+Node.js 24 の build stage で npm ci と tsc を実行します。root で profile の
 ファイルを作らないよう UID 1000 の wiki user で実行します。
 
 ```sh
@@ -47,7 +48,7 @@ docker compose -f deploy/compose.yaml run --rm --entrypoint /bin/sh wiki
 # /data/lucy/.ai-topics/secrets.json
 ```
 
-Node/Python の実行時に runner が HOME と Pi agent directory を設定します。
+runner は SDK worker と collector の子プロセスに profile の HOME と Pi agent directory を渡します。
 RSS/X CLI は target と同じ OS/architecture で `tools/install-source-tools` を使いビルドし、
 profile/bin へ配置します。Docker image には optional Go compiler と認証済み CLI は含みません。
 必要なら別 build stage に Go を追加するか、profile を bind mount して Linux 用 binary を配備。
@@ -65,7 +66,7 @@ bind mount を使う場合は実行 UID/GID と profile 所有者を合わせま
 
 ## モデル smoke test と未設定 source
 
-`wiki pi -- --list-models` はモデルの設定確認、`--print` の短い質問は疎通確認。
+`bin/wiki pi --list-models` はモデルの設定確認、`--print` の短い質問は疎通確認。
 `doctor` はネットワーク/認証/モデル能力を検証しません。
 不要な source job を manifest で停止し、その依存段階も停止します。
 全30 job の定義は Lucy の機能対応を示すもので、認証前に全 source を実行する推奨ではありません。

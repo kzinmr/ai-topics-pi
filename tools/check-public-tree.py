@@ -19,7 +19,7 @@ for relative in set(files):
         errors.append(relative+': private key')
     if re.search(r'(?:sk-[A-Za-z0-9_-]{24,}|gh[pousr]_[A-Za-z0-9]{30,}|xox[baprs]-[A-Za-z0-9-]{20,})', text):
         errors.append(relative+': token-like literal')
-    if relative.startswith(('scripts/', 'prompts/', 'skills/', 'bin/')) and re.search(r'HERMES_|\.hermes|/opt/data|/srv/hermes', text):
+    if relative != 'src/migrate.ts' and relative.startswith(('src/', 'scripts/', 'prompts/', 'skills/', 'bin/')) and re.search(r'HERMES_|\.hermes|/opt/data|/srv/hermes', text):
         errors.append(relative+': legacy runtime dependency')
 if errors:
     raise SystemExit('\n'.join(errors))

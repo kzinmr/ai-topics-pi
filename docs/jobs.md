@@ -35,9 +35,8 @@
 | llm-pricing-monitor | `0 10 * * 1` | true | Pi |
 | hierarchy-candidate-detection | `0 15 * * 3` | true | Pi |
 
-check-skill-inventory / skill-drift-check は Pi native skill の inventory と code drift 検査へ置換。
-nightly collection は移植後の RSS/newsletter checkpoint archive を使用。
+check-skill-inventory / skill-drift-check は Pi native skill の inventory と code drift を検査。
+nightly collection は RSS/newsletter checkpoint archive を使用。
 raw-backlog は batch completion JSON を検証し、完了済み記事の再選択を防止。
-移行前の巨大な個別 skill/reference 群は配布せず、共通運用契約と2つの短い Pi skill に整理。
-旧 browser/gateway/kanban/plugin、agent の自己書換え・自己 skill 昇格は含まない。
+共通運用契約と2つの短い Pi skill で Wiki 作業を定義。
 ソース取得不能時は報告し、ブラウザ拡張等が必要な環境は Pi extension で追加する。

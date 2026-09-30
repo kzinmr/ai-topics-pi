@@ -1,92 +1,107 @@
 # 設計
 
-## 境界
+## 実行構成
 
 ```mermaid
-flowchart LR
-    OS[cron / systemd] --> R[wiki tick]
+flowchart TD
+    OS[cron / systemd] --> R[TypeScript runner]
     R --> C[Python collectors]
     C --> RAW[Immutable raw + JSON checkpoints]
-    RAW --> P[Pi print / JSON]
-    P --> W[Wiki synthesis + index + log]
-    R --> S[SQLite runs + minute claims]
-    P --> O[Local outbox]
-    O --> D[Optional delivery command]
-    W --> G[Optional Git publish]
+    RAW --> R
+    R -->|Node IPC| W[Node.js SDK worker]
+    W --> SDK[Pi AgentSession]
+    SDK --> LLM[Local LLM / compatible API]
+    SDK --> TOOLS[Pi tools / extensions]
+    TOOLS --> WIKI[Wiki + index + log]
+    W --> R
+    R --> DB[SQLite runs / claims]
+    R --> OUT[Outbox / optional delivery]
+    R --> GIT[Optional Git publish]
 ```
 
-Pi を長期接続した server として包まず、1 task = 1 Pi CLI process にします。
-Pi の tools、provider、context compaction、session JSONL を再実装しません。
-`--mode json --print` の完了イベントと assistant stopReason を確認し、途中切断・API
-エラー・出力上限到達を成功として扱いません。実測 usage は final response とは別に保存。
+Node.js 24 の TypeScript アプリケーションです。`npm run build` で src/ を dist/ に
+コンパイルし、`bin/wiki` が dist/cli.js を起動します。Python は情報収集・品質検査に使用します。
+Pi SDK `@earendil-works/pi-coding-agent` の固定版を利用します。
 
-既存 ai-topics-agent の multi-harness adapter、Hermes ABI、asset 配布/sync 層、常駐
-scheduler、gateway、バックアップ形式は持ち込みません。共有したのは収集・品質検査の
-ドメインコードと実行ロック/記録の考え方です。移植元の hash は source-inventory.json。
-30ジョブを維持しながら、報告だけの LLM 呼出しを script-only に置き換えています。
+| Module | 責務 |
+|---|---|
+| cli.ts / config.ts | コマンド、profile、manifest 検証、子プロセス環境 |
+| runner.ts / schedule.ts | ジョブ順序、依存鮮度、UTC cron、catch-up |
+| state.ts | Node 標準 SQLite、実行記録、claim、profile mutex |
+| agent.ts / agent-worker.ts | worker 起動、IPC、deadline、終了処理 |
+| agent-session.ts | Pi SDK の model・resource・session 設定と実行 |
+| results.ts | triage の出典同一性、backlog 完了記録の検証 |
+| process.ts | collector / Git / 配信 subprocess の lifecycle |
+| delivery.ts / search.ts / publish.ts | 通知、検索、Git 公開 |
+| profile.ts / migrate.ts | profile 初期化、外部 collector state の import |
+| scripts/ | 独立した Python collector / inspector |
 
-## パス
+## Pi SDK の責務
+
+worker は `ModelRuntime` で provider/認証/model を読み、`createAgentSessionServices` と
+`createAgentSession` で session を作ります。`DefaultResourceLoader` の options を通じて
+skill・prompt・extension・共通指示を設定し、`SessionManager` が履歴を永続化します。
+LLM API、tool calling、context compaction、モデルの自動 retry は Pi に任せます。
+
+定期 task は `session.prompt()` の完了を待ち、session 内の最後の assistant message と
+stopReason を検証。途中の失敗が Pi の retry で回復した場合も、最終状態で判定します。
+message_end イベントから usage を集め、本文とは分けて保存。session ID/path も記録します。
+
+worker はジョブ単位の独立プロセスです。起動時から profile HOME / 認証環境を設定するため、
+親の process.env を書き換えずに SDK と標準 bash tool が同じ profile を使えます。
+IPC はアプリケーションの request/result を運び、モデルイベントの stdout 解析は行いません。
+終了時は runtime.dispose()。timeout では SDK abort を要求し、終了しない worker を強制停止。
+Pi tools の中断処理に加え、runner が管理する process group も終了させます。
+
+`wiki pi` は同じ runtime factory を Pi SDK の `InteractiveMode` に渡します。
+`AgentSessionRuntime` が `/new`・`/resume`・`/fork` 後の session と services を再構築。
+対話モードにはジョブ用の時間制限を設けず、終了まで profile lock を保持します。
+
+## パス・設定
 
 | 対象 | 場所 |
 |---|---|
-| profile root | `AI_TOPICS_PROFILE`（省略時 checkout の profiles/lucy） |
-| 子プロセス HOME | profile root（operator の HOME は変更しない） |
-| コンテンツ | `~/ai-topics` |
-| canonical Wiki | `~/wiki`（content Wiki への相対 symlink） |
-| Pi 設定 / 認証 | `~/.pi/agent` |
-| collectors の状態 | `~/.ai-topics/data`、`processed_*.json` |
-| 実行記録 / 結果 / outbox | `~/.ai-topics/runs.db`、`runs/`、`outbox/` |
-| Pi sessions | `~/.ai-topics/sessions/` |
-| 保守 script | code checkout の scripts/、呼出しは `wiki-script NAME.py` |
+| profile root | AI_TOPICS_PROFILE（省略時 checkout の profiles/lucy） |
+| 子プロセス HOME | profile root |
+| コンテンツ / canonical Wiki | ~/ai-topics / ~/wiki |
+| Pi 設定 / 認証 | ~/.pi/agent |
+| collectors の状態 | ~/.ai-topics/data、processed_*.json |
+| 実行記録 / claim | ~/.ai-topics/runs.db |
+| profile mutex | ~/.ai-topics/lock.db |
+| 実行成果物 / Pi session / outbox | ~/.ai-topics/runs、sessions、outbox |
+| scripts | checkout の scripts/（入口は wiki-script NAME.py） |
 
-code checkout が移動したら profile/.ai-topics/scripts の symlink を新 scripts/ に
-張り替えてください。profile 移動時は `AI_TOPICS_PROFILE` と checkpoint 内の raw_path も
-確認します。run artifacts は過去時点の記録として保持します。
-モデルの API 接続や認証は runner の独自設定へ複製しません。
+code checkout を移動したら profile/.ai-topics/scripts を新しい scripts/ へ張り替えます。
+profile 移動時は AI_TOPICS_PROFILE と checkpoint 内の raw_path を確認します。
+共通 Wiki 指示は config/AGENTS.md。祖先 directory や旧コンテンツの agent 設定を読み込まないよう
+context-file 自動探索を停止し、system prompt に明示追加します。extension も明示指定です。
+init は destination の AGENTS.md を設置し、原本を private state に保存します。
 
-## 実行と失敗
+## 永続状態・失敗境界
 
-- profile 全体を flock で排他。run / tick / interactive Pi / publish は同じロックを使用。
-  `wiki-script` は Pi 内から呼ぶため再入ロックを取りません。手動 collector と tick の併走は不可。
-- UTC 5-field cron。曜日/日付は Vixie OR semantics。日付 step `*/2` は暦の月初基準。
-- tick は永続 minute cursor と (job, slot) unique claim を持ち、同一 slot を再実行しません。
-  初回は現在の minute から開始。次回は前回から追いつきます。24時間を超える欠落は停止。
-  長時間ジョブ中の起動は busy となり、後続 tick が追いつきます。
-- upstream の最新実行が成功し、26時間以内であることを確認。さらに triage より新しい
-  collector がないことも確認。失敗/古い triage を過去の成功で隠しません。
-- collector は stdout JSON / stderr logs / nonzero failure。exit 0 の `ok:false` も失敗。
-  script と Pi の timeout は process group 全体へ適用。強制終了時の running 行は、
-  人が artifacts を確認し `recover RUN_ID` するまで定期実行を停止します。
-- scheduled claim は at-most-once。外部副作用と SQLite を跨ぐ exactly-once は保証しません。
-  claim 直後の crash で未実行 slot が残ることがあります。status と artifacts を確認し手動再実行。
-- blog/newsletter triage は checkpoint ID と全候補の一意な決定を検証。
-  URL/raw_path は collector の入力から付与。nightly themes の URL も入力に限定します。
-- structured result は成功した run の response.md（中身は JSON）から直接渡します。
-  scheduler 固有 ID と Markdown の Response セクションの解析はありません。
-- 失敗は作業中のファイル編集を自動 rollback しません。Git diff を確認して再実行してください。
+- SQLite の別 connection / 別 lock.db で BEGIN IMMEDIATE を保持し、profile を排他。
+  強制終了時も OS が lock を解放します。run / tick / interactive / publish は同じ mutex を取得。
+  Pi から呼ぶ wiki-script は再入 lock を取りません。手動 collector と tick は併走させない。
+- runs.db は実行 ID・開始/終了・結果・詳細を保存。claims は (job, slot) unique。
+  session 履歴と業務の進行状態は別の責務です。
+- UTC 5-field cron。日付/曜日は Vixie OR semantics。初回 tick は現在 minute から開始し、
+  以後は保存 cursor から追いつきます。既定24時間を超える欠落は停止してレビューを求めます。
+- upstream の最新成功と鮮度を確認。triage より新しい collector があれば後続を止めます。
+  triage JSON は checkpoint ID・候補網羅・一意性を検証し、URL/raw_path は入力から付与。
+  nightly theme に未知の URL が混ざれば拒否。backlog は全記事の完了記録を検証。
+- collector は JSON stdout / stderr logs / nonzero failure。exit 0 の ok:false も失敗です。
+- crash 後の running 行は recover RUN_ID するまで run/tick を止めます。
+  claim と外部副作用を跨ぐ exactly-once は保証せず、無条件の自動再実行はしません。
+- 失敗時に途中の Wiki 編集を自動 rollback しません。Git diff と run artifacts を確認します。
+- 通知 / push は独立して再試行。通知は at-least-once で run ID を添付します。
 
-## Pi context と拡張
+## 拡張・権限
 
-`config/AGENTS.md` を明示的に system prompt へ追加。旧コンテンツの AGENTS.md や
-祖先 directory の Hermes 設定を誤読しないよう context-file 自動探索を止めています。
-init は destination clone の AGENTS.md を Pi 版に置換し、旧版を private state に保存。
-自動探索による extension 起動も止め、必要な extension は `pi.extensions` で明示します。
-skills は Pi 標準読み込み、prompt は Markdown。cron manifest が workflow の唯一の定義です。
-自動実行と同じ挙動の対話入口は `bin/wiki pi` です。
+新 source は独立 collector、新 task は manifest + prompt、agent の機能追加は Pi extension。
+WIKI_SEARCH_COMMAND は JSON argv、通知 route も argv と stdin envelope の明示契約です。
+SDK integration test は追加 extension の実 tool call と結果受渡しも検証します。
 
-新 job の `script`、`prompt`、`skills`、`depends_on`、`schedule` を追加し validate。
-collector helper は単独でも通常の Python として利用できます。
-`wiki-search` は BRAVE_API_KEY または WIKI_SEARCH_COMMAND（JSON argv）を使い、検索先を分離。
-`wiki-deliver` は任意コマンドへ置換可能。Pi extension で追加 tools も登録できます。
-
-## 運用上の制約
-
-Pi/bash は OS と同じ権限を持ちます。prompt は sandbox ではなく、profile 内の秘密情報を
-モデルの tool から技術的に隠す境界もありません。分離が必要なら別 OS user/container と
-秘密注入を分けてください。通常の transcript に秘密値を書かない設定を維持します。
-公開ログでは環境の key/token/password 値をマスクしますが Pi session は private artifact。
-
-通知は at-least-once。送信後に crash すると重複し得るため run ID を添付。
-Git 公開は wiki/ のみで既存 staged 変更があれば拒否。hooks を無効化しません。
-source content repository 由来の shell hooks は別のコード依存として確認してください。
-無人公開は opt-in。profile の Git identity、credential helper、SSH 等は個別設定が必要です。
+Pi/bash は実行 OS user の権限を持ち、profile 内の秘密情報を tool から隔離する sandbox
+ではありません。秘密と権限の分離には別 user/container を使用します。Pi sessions と
+collector state は private artifact。保存する run logs の既知の secret 値はマスクします。
+Git 公開は wiki/ に限定し、既存 staged 変更があれば停止。コンテンツの hooks を実行します。

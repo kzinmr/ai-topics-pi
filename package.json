@@ -3,8 +3,28 @@
   "version": "0.1.0",
   "private": true,
   "description": "Pi-only AI news collection and llm-wiki operations",
-  "engines": {"node": ">=22"},
-  "dependencies": {"@earendil-works/pi-coding-agent": "0.99.1"},
-  "scripts": {"test": "bin/test"},
-  "pi": {"skills": ["./skills"], "prompts": ["./prompts"]}
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.99.1"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs && bin/test-collectors"
+  },
+  "pi": {
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "24.19.0",
+    "typescript": "5.9.3"
+  },
+  "type": "module"
 }

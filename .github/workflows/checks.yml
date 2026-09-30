@@ -14,8 +14,11 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: pip install --require-hashes -r requirements.lock
+      - run: npm run typecheck
       - run: npm test
       - run: bin/wiki validate
-      - run: python3 -m compileall -q src scripts tests
+      - run: python3 -m compileall -q scripts tests tools
       - run: python3 tools/check-public-tree.py
       - run: docker build -f deploy/Dockerfile -t ai-topics-pi .
+      - run: docker run --rm --network none --entrypoint node ai-topics-pi --test tests/runtime.test.mjs tests/sdk.test.mjs tests/tui.test.mjs
+      - run: docker run --rm --network none --entrypoint /app/bin/test-collectors ai-topics-pi

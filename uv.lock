@@ -5,7 +5,7 @@ requires-python = ">=3.12"
 [[package]]
 name = "ai-topics-pi"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 
 [package.optional-dependencies]
 collectors = [
